@@ -10,7 +10,7 @@ from starlette.responses import Response, PlainTextResponse
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "8730861249:AAFldFUdK-uKcp3hJtThrb6tvQdsCBmUuIY"  # توكن البوت الخاص بك
+TOKEN = "8730861249:AAFldFUdK-uKcp3hJtThrb6tvQdsCBmUuIY"
 URL = os.environ.get("RENDER_EXTERNAL_URL", "https://maker-banner-freefire-bot.onrender.com")
 PORT = int(os.getenv("PORT", 8000))
 
@@ -23,39 +23,66 @@ logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "بوت تحويل صور الى بنرات فري فاير 🎮\n\n"
-        "قم بارسال اي صوره و سوف أحوالها الى بانر✔️\n"
-        "مطور مغربي🇲🇦",
+        "بوت تحويل صور الى بنرات🎮\n\n"
+        "قم بارسال اي صوره و سوف احولها\n"
+        "مطور مغربي 🇲🇦",
         parse_mode="Markdown"
     )
 
+def flip_image_upside_down(img):
+    """قلب الصورة رأساً على عقب (180 درجة)"""
+    # دوران 180 درجة = قلب عمودي + قلب أفقي
+    img = img.transpose(Image.ROTATE_180)
+    return img
+
 async def convert_image(input_path: str, output_path: str) -> bool:
     try:
+        # الخطوة 1: فتح الصورة
         img = Image.open(input_path)
-        img_resized = img.resize(TARGET_SIZE, Image.Resampling.LANCZOS)
-        temp_png = "temp_converted.png"
-        img_resized.save(temp_png)
+        logger.info(f"الأبعاد الأصلية: {img.size}")
         
+        # الخطوة 2: تغيير الأبعاد إلى 128×128
+        img_resized = img.resize(TARGET_SIZE, Image.Resampling.LANCZOS)
+        logger.info(f"تم تغيير الأبعاد إلى: {TARGET_SIZE}")
+        
+        # الخطوة 3: قلب الصورة رأساً على عقب (180 درجة)
+        img_flipped = flip_image_upside_down(img_resized)
+        logger.info("تم قلب الصورة رأساً على عقب")
+        
+        # حفظ الصورة المعالجة مؤقتاً
+        temp_png = "temp_converted.png"
+        img_flipped.save(temp_png)
+        
+        # الخطوة 4: تحويل إلى ASTC
         cmd = f"./astcenc-avx2 -cs {temp_png} {output_path} {BLOCK_SIZE} -{QUALITY}"
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         
+        # تنظيف الملفات المؤقتة
         if os.path.exists(temp_png):
             os.remove(temp_png)
         
-        return result.returncode == 0 and os.path.exists(output_path)
+        if result.returncode == 0 and os.path.exists(output_path):
+            logger.info("تم تحويل ✔️")
+            return True
+        else:
+            logger.error(f"فشل التحويل: {result.stderr}")
+            return False
+            
     except Exception as e:
-        logger.error(f"خطأ: {e}")
+        logger.error(f"خطأ في التحويل: {e}")
         return False
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    await update.message.reply_text("🔄 جاري تحويل الصورة...")
+    await update.message.reply_text("يتم تحويل 🔄")
     
     try:
+        # تحميل الصورة
         photo = await update.message.photo[-1].get_file()
         input_path = f"input_{user.id}.jpg"
         await photo.download_to_drive(input_path)
         
+        # تحويل الصورة
         output_path = f"output_{user.id}.astc"
         success = await convert_image(input_path, output_path)
         
@@ -63,15 +90,17 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             with open(output_path, 'rb') as f:
                 await update.message.reply_document(
                     document=f,
-                    filename="_rgb",
-                    caption=f"✅ تم التحويل"
+                    filename="image.astc",
+                    caption="تم تحويل بنجاح ✔️"
                 )
         else:
-            await update.message.reply_text("❌ فشل التحويل!")
+            await update.message.reply_text("❌ فشل التحويل! تأكد من أن الصورة سليمة وحاول مرة أخرى.")
         
+        # تنظيف الملفات
         for f in [input_path, output_path]:
             if os.path.exists(f):
                 os.remove(f)
+                
     except Exception as e:
         logger.error(f"خطأ: {e}")
         await update.message.reply_text("❌ حدث خطأ، حاول مرة أخرى.")
@@ -81,7 +110,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if doc.mime_type and doc.mime_type.startswith('image/'):
         await handle_photo(update, context)
     else:
-        await update.message.reply_text("❌ يرجى إرسال صورة")
+        await update.message.reply_text("❌ يرجى إرسال صورة (PNG, JPG, JPEG)")
 
 async def main():
     app = Application.builder().token(TOKEN).updater(None).build()
@@ -100,7 +129,7 @@ async def main():
             await app.update_queue.put(Update.de_json(data, app.bot))
             return Response()
         except Exception as e:
-            logger.error(f"خطأ: {e}")
+            logger.error(f"خطأ في webhook: {e}")
             return Response(status_code=500)
     
     async def health_check(request: Request) -> PlainTextResponse:
