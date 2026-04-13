@@ -23,12 +23,9 @@ logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🎮 *بوت تحويل ASTC لـ Free Fire*\n\n"
-        "أرسل لي أي صورة وسأقوم بـ:\n"
-        "1️⃣ تغيير الأبعاد إلى 128×128 بكسل\n"
-        "2️⃣ تحويلها إلى صيغة ASTC (كتلة 8×8)\n"
-        "3️⃣ إرسال الملف النهائي إليك\n\n"
-        "✅ أرسل صورة الآن!",
+        "بوت تحويل صور الى بنرات فري فاير 🎮\n\n"
+        "قم بارسال اي صوره و سوف أحوالها الى بانر✔️\n"
+        "مطور مغربي🇲🇦",
         parse_mode="Markdown"
     )
 
@@ -39,7 +36,7 @@ async def convert_image(input_path: str, output_path: str) -> bool:
         temp_png = "temp_converted.png"
         img_resized.save(temp_png)
         
-        cmd = f"./astcenc-avx2 -cs {temp_png} {output_path} {BLOCK_SIZE} -{QUALITY}"
+        cmd = f"./astcenc-avx2 -cs {temp_png} {output_path} {BLOCK_SIZE} -{QUALITY} -rgb"
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         
         if os.path.exists(temp_png):
@@ -66,8 +63,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             with open(output_path, 'rb') as f:
                 await update.message.reply_document(
                     document=f,
-                    filename="image.astc",
-                    caption=f"✅ تم التحويل!\n📏 128×128 | 🔲 8×8"
+                    filename="_rgb",
+                    caption=f"✅ تم التحويل"
                 )
         else:
             await update.message.reply_text("❌ فشل التحويل!")
