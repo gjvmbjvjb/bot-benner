@@ -36,7 +36,7 @@ async def convert_image(input_path: str, output_path: str) -> bool:
         temp_png = "temp_converted.png"
         img_resized.save(temp_png)
         
-        cmd = f"./astcenc-avx2 -cs {temp_png} {output_path} {BLOCK_SIZE} -{QUALITY} -rgb"
+        cmd = f"./astcenc-avx2 -cs {temp_png} {output_path} {BLOCK_SIZE} -{QUALITY}"
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         
         if os.path.exists(temp_png):
