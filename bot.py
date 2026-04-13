@@ -29,7 +29,10 @@ def process_image(input_path: str, output_png: str) -> bool:
     try:
         img = Image.open(input_path)
         img_resized = img.resize(TARGET_SIZE, Image.Resampling.LANCZOS)
+        # قلب رأساً على عقب
         img_flipped = img_resized.rotate(180)
+        # قلب يمين على يسار ويسار على يمين
+        img_flipped = img_flipped.transpose(Image.FLIP_LEFT_RIGHT)
         img_flipped.save(output_png, "PNG")
         return True
     except:
